@@ -1,0 +1,34 @@
+
+/*
+поиск ближайшей рабочей точки в data (data размера count), по значению value, возвращает индекс рт, и расстояние distance
+растояние относительное, где 0 - полное попадание в рт, 1 - точка по средине, 2 - сильно удаленная точка вне диапазона
+*/
+int get_current_rt(const int *data, const int count, const int value, float *distance)
+{
+	int ra, rb;
+	int rt = count - 1;//если вышли из диапазона и не нашли рабочую точку, то будет выбрана последняя
+	float dist = 2.0f * (value - data[count - 1]) / float(data[count - 1] - data[count - 2]);
+
+	for(int i = 1; i < count; i++)
+	{
+		if(value <= data[i])
+		{
+			ra = value - data[i - 1];
+			rb = data[i - 0] - value;
+			dist = 2.0f / float(data[i] - data[i - 1]);
+			if (ra < rb || ra < 0)
+			{
+				rt = i - 1;
+				dist *= abs(ra);
+			}
+			else
+			{
+				rt = i;
+				dist *= float(rb);
+			}
+			break;
+		}
+	}
+	if (distance != 0)	*distance = dist;
+	return rt;
+}
