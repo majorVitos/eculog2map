@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <map>
 #include <string>
 #include <utility>
 
@@ -45,6 +46,7 @@ void free_log_data(float **logs_data, const int params_count);
 
 
 
-typedef std::pair<std::string, std::vector<std::string>> log_data_type;
 
-int read_logs_csv2(const std::string &file_name, std::vector<log_data_type> &logs_data);
+typedef std::map<std::string, std::vector<std::string>> data_logs_t;
+
+int read_logs_csv2(const std::string &file_name, data_logs_t &logs_data);

@@ -127,9 +127,6 @@ struct pointoflearn
 
 std::vector<std::string> get_all_logs_filenames();
 
-
-
-
 const int table_size = 16;
 
 bool flag_pf_throttle = false;//power_factor = throttle
@@ -162,13 +159,13 @@ int main(int argc, char* argv[])
 	
 
 	std::vector<std::string> file_names = get_all_logs_filenames();
-	std::vector<log_data_type> logs_data;
+	data_logs_t data_logs;
 
 	for (size_t fi = 0; fi < file_names.size(); fi++)
 	{
-		//err = read_logs_csv2(std::string("logs\\") + file_names[fi], logs_data);
-
-
+		err = read_logs_csv2(std::string("logs\\") + file_names[fi], data_logs);
+		auto v = data_logs.find("TIME");
+		auto v2 = data_logs.find("Time");
 		err = read_logs_csv((std::string("logs\\") + file_names[fi]).c_str(), &logs_data_ptr, &logs_params_ptr, &params_count, &data_count);
 
 		const float *dTIME		= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "TIME", "Time");
@@ -209,6 +206,7 @@ int main(int argc, char* argv[])
 		{
 			coef_deviation = calc_deviation(&coef_mean, dCOEFF[t], 4);
 			if (dLAMREG[t] < 1 && !flag_use_lsu)	continue;//не в зоне регулирования УДК и нет ШДК
+			if (dLC_AFR[t] < 1.0f && flag_use_lsu)	continue;//
 			if (dTWAT[t] < 70 )	continue;//двигатель не прогрет
 			if (dRPM[t] < 0.9*RPM_Quantization[0])	continue;//обороты ниже рабочих
 			
@@ -285,44 +283,7 @@ int main(int argc, char* argv[])
 		}
 	}
 
-/*
-*
-*
-*
-	for (int i = 0; i < table_size; i++)
-	{
-		for (int j = 0; j < table_size; j++)
-		{
-			float mindist;//Minimum distance
-			int count_points;
-			float mid_inf = 0.4f;
-			
-			for(int cycles_inf = 0; cycles_inf < 3; cycles_inf++)
-			{
-				count_points = 0;
-				mindist = 1;
-				for (size_t k = 0; k < table_core[i][j].size(); k++)//minimum calculating
-				{
-					mindist = std::min(mindist, hypotf(table_core[i][j][k].rpmrt_dist, table_core[i][j][k].factorrt_dist) );
-				}
-				for (size_t k = 0; k < table_core[i][j].size(); k++)//providing learn point that not above 20%
-				{
-					if (hypotf(table_core[i][j][k].rpmrt_dist, table_core[i][j][k].factorrt_dist) <= mindist* (1.0 + mid_inf))
-					{
-						table_core[i][j][k].learn = 1;
-						count_points++;
-					}
-					else
-						table_core[i][j][k].learn = 0;
 
-				}
-				mid_inf *= 0.5;
-				if (count_points >= 5)
-					break;
-			}
-		}
-	}
-	*/
 
 	float table_correction[table_size][table_size];
 	float table_pcn_in[table_size][table_size];
@@ -398,6 +359,7 @@ int main(int argc, char* argv[])
 	}
 	write_cte_data("bcn_press.cte", table_bcn, cte_bcn_head, cte_bcn_caption);
 
+#include <algorithm>
 
 	/*
 	тут задумывалось, если файл не открылся для чтения старых данных, то новый не создается

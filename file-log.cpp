@@ -1,4 +1,6 @@
 
+#include "file-cte-log.h"
+
 #include <memory>
 #include <vector>
 #include <cstring>
@@ -7,6 +9,8 @@
 #include <cstdlib>
 #include <cctype>
 #include <cstdarg> 
+
+#include <cassert>
 
 /*
 Чтение из файла логов всех данных, его разбор
@@ -187,3 +191,62 @@ std::vector<std::string> get_all_logs_filenames()
     return file_names;
 }
 #endif
+
+
+typedef std::pair<std::string, std::vector<std::string>> type1;
+
+int read_logs_csv2(const std::string &file_name, data_logs_t &data_logs)
+{
+	char buffer[256];
+	char* tmp;
+	int err = 0;
+	std::vector<type1> data;
+
+	std::unique_ptr<std::FILE, int(*)(std::FILE*)> fi(fopen(file_name.c_str(), "rb"), std::fclose);
+	if (!fi)
+		return 1;
+	
+	//filling names
+	do
+	{
+		tmp = buffer;
+		if (fscanf(fi.get(), "%255[^,\r\n],", tmp) == EOF)
+			return EOF;
+		for (; isalnum(*(unsigned char*)tmp) == 0 && *tmp != 0; tmp++);//skip firsts whitespaceses / пропуск начальных пробелов
+		err = !data_logs.emplace(std::string(tmp), std::vector<std::string>()).second;
+		if (!err)
+			data.push_back(type1(tmp, std::vector<std::string>()));
+	} while (!err);
+	
+	err = 0;
+	//filling data
+	while((fscanf(fi.get(), "\r\n")) == 0 && !err)
+	{
+		for (auto i = data.begin(); i != data.end(); ++i)
+		{
+			if ((fscanf(fi.get(), "%255[^,\r\n],", buffer)) == EOF)
+			{
+				if (i == data.begin())
+				{
+					err = 1;
+					break;
+				}
+				else
+				{
+					for (; i != data.begin();)//Partially read data must be cleared / частично загружены данные, нужно откатить назад 
+						(*(--i)).second.pop_back();
+					err = 1;
+					break;
+				}
+			}
+			(*i).second.push_back(buffer);
+		}
+	}
+	for (auto i = data.begin(); i != data.end(); ++i)
+	{
+		auto v = data_logs.find((*i).first);
+		assert(v != data_logs.end());
+		(*v).second.swap((*i).second);
+	}
+	return 0;
+}

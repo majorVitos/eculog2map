@@ -18,7 +18,7 @@
     <ClInclude Include="../config.h">
       <Filter>Заголовочные файлы</Filter>
     </ClInclude>
-    <ClInclude Include="../cte_log_files.h">
+    <ClInclude Include="..\file-cte-log.h">
       <Filter>Заголовочные файлы</Filter>
     </ClInclude>
   </ItemGroup>
