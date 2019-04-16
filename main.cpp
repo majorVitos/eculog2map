@@ -3,7 +3,7 @@
 
 
 #include "config.h"
-#include "cte_log_files.h"
+#include "file-cte-log.h"
 
 
 #include <algorithm>
@@ -30,9 +30,9 @@ void table_init(T table[n][m], T v)
 	}
 }
 
-/*Р±РёРЅР°СЂРЅС‹Р№ РїРѕРёСЃРє Р±Р»РёР¶Р°Р№С€РµР№ СЂР°Р±РѕС‡РµР№ С‚РѕС‡РєРё
-* РІ data, РїРѕ Р·РЅР°С‡РµРЅРёСЋ value, РІРѕР·РІСЂР°С‰Р°РµС‚ РёРЅРґРµРєСЃ, Рё СЂР°СЃСЃС‚РѕСЏРЅРёРµ distance
-*СЂР°СЃС‚РѕСЏРЅРёРµ РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕРµ, РіРґРµ 0 - РїРѕР»РЅРѕРµ РїРѕРїР°РґР°РЅРёРµ РІ СЂС‚, 0.5 - С‚РѕС‡РєР° РїРѕ СЃСЂРµРґРёРЅРµ
+/*бинарный поиск ближайшей рабочей точки
+* в data, по значению value, возвращает индекс, и расстояние distance
+*растояние относительное, где 0 - полное попадание в рт, 0.5 - точка по средине
 */
 int get_current_rt(const std::vector<int> data, const int value, float *distance)
 {
@@ -73,8 +73,8 @@ int get_current_rt(const std::vector<int> data, const int value, float *distance
 
 
 /*
-РѕС‚РєР»РѕРЅРµРЅРёРµ РїРѕ РєРѕСЌС„С„РёС†РёРµРЅС‚Сѓ, РµСЃР»Рё РІСЃСЂРµРґРЅРµРј, С‚Рѕ РІРµСЂРѕСЏС‚РЅРѕ, РґРѕСЃС‚РёРіРЅСѓС‚Р° СЃС‚Р°С†РёРѕРЅР°СЂРЅРѕСЃС‚СЊ
-РІ РґР°Р»СЊРЅРµР№С€РµРј РЅРµ РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ, РєР°Рє РЅРёР·РєР°СЏ СЌС„С„РµРєС‚РёРІРЅРѕСЃС‚СЊ
+отклонение по коэффициенту, если всреднем, то вероятно, достигнута стационарность
+в дальнейшем не используется, как низкая эффективность
 */
 #define DEVIATION_SIZE 4
 float xi[DEVIATION_SIZE+1];
@@ -137,21 +137,21 @@ bool flag_use_lsu = true;
 
 int main(int argc, char* argv[])
 {
-	if (argc > 1)
-	{
-		printf("Unsuported parameter: %s", argv[1]);
-	}
-
 	float **logs_data_ptr;
 	char **logs_params_ptr;
 	int params_count, data_count;
+	int err;
 
 	std::vector<pointoflearn> table_core[table_size][table_size];	
 	std::vector<int> RPM_Quantization;
 	std::vector<int> Factor_Quantization;
 	std::vector<int> Throttle_Quantization;
 	
-	
+	if (argc > 1)
+	{
+		printf("Unsuported parameter: %s", argv[1]);
+	}
+
 	tsconfig cfg1("test.cfg");
 	cfg1.get_int("RPM_es" + std::to_string(table_size), RPM_Quantization);
 	cfg1.get_int("Press_quant" + std::to_string(table_size), Factor_Quantization);
@@ -162,25 +162,29 @@ int main(int argc, char* argv[])
 	
 
 	std::vector<std::string> file_names = get_all_logs_filenames();
+	std::vector<log_data_type> logs_data;
 
 	for (size_t fi = 0; fi < file_names.size(); fi++)
 	{
-		read_logs_csv((std::string("logs\\") + file_names[fi]).c_str(), &logs_data_ptr, &logs_params_ptr, &params_count, &data_count);
+		//err = read_logs_csv2(std::string("logs\\") + file_names[fi], logs_data);
+
+
+		err = read_logs_csv((std::string("logs\\") + file_names[fi]).c_str(), &logs_data_ptr, &logs_params_ptr, &params_count, &data_count);
 
 		const float *dTIME		= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "TIME", "Time");
-		const float *dTRT		= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 3, "TRT", "THR", "Р”СЂРѕСЃСЃРµР»СЊ");
-		const float *dRPM		= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "RPM", "РѕР±РѕСЂРѕС‚С‹ РґРІСЃ");
-		const float *dfLAM		= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "fLAM", "С‚РµРєСѓС‰РµРµ СЃРѕСЃС‚РѕСЏРЅРёРµ Р”Рљ");
-		const float *dCOEFF		= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "COEFF", "РєРѕСЌС„РёС†РµРЅС‚ РєРѕСЂСЂРµРєС†РёРё РІСЂРµРјРµРЅРё РІРїСЂС‹СЃРєР°");
+		const float *dTRT		= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 3, "TRT", "THR", "Дроссель");
+		const float *dRPM		= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "RPM", "обороты двс");
+		const float *dfLAM		= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "fLAM", "текущее состояние ДК");
+		const float *dCOEFF		= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "COEFF", "коэфицент коррекции времени впрыска");
 		const float *dPRESS		= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "PRESS", "PRESSURE J7ES");
-		const float *dLAMREG	= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "fLAMREG", "С„Р»Р°Рі Р·РѕРЅС‹ СЂРµРіСѓР»РёСЂРѕРІР°РЅРёСЏ РїРѕ РґРє");
-		const float *dTWAT		= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "TWAT", "С‚РµРјРїРµСЂР°С‚СѓСЂР° РћР–");
-		const float *dGBC		= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "GBC", "Р¦РёРєР»РѕРІРѕР№ СЂР°СЃС…РѕРґ РІРѕР·РґСѓС…Р°");
-//		const float *dADC_LAM	= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "ADCLAM", "РђР¦Рџ Р”Рљ");
+		const float *dLAMREG	= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "fLAMREG", "флаг зоны регулирования по дк");
+		const float *dTWAT		= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "TWAT", "температура ОЖ");
+		const float *dGBC		= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "GBC", "Цикловой расход воздуха");
+//		const float *dADC_LAM	= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "ADCLAM", "АЦП ДК");
 	
-		const float *dADC_MAF	= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "ADCMAF", "РђР¦Рџ Р”РњР Р’");
-		const float *dINJ		= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "INJ", "Р’СЂРµРјСЏ РІРїСЂС‹СЃРєР°");
-		const float *dAFR		= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "AFR", "СЃРѕСЃС‚Р°РІ СЃРјРµСЃРё");//Desired afr
+		const float *dADC_MAF	= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "ADCMAF", "АЦП ДМРВ");
+		const float *dINJ		= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "INJ", "Время впрыска");
+		const float *dAFR		= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "AFR", "состав смеси");//Desired afr
 		const float *dLC_AFR	= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "AFR_LC1", "AFR_LC");
 
 		if (!dTIME || !dTRT || !dRPM || !dfLAM || !dCOEFF || !dPRESS || !dLAMREG || !dTWAT || !dGBC)
@@ -193,9 +197,9 @@ int main(int argc, char* argv[])
 		int rpm_rt, prev_rpm_rt = 0;
 
 		float rpmrt_dist, power_factor_dist;
-		int stationary_rpm;				//РЎС‚Р°С†РёРѕРЅР°СЂРЅРѕСЃС‚СЊ РїРѕ РѕР±РѕСЂРѕС‚Р°Рј 
+		int stationary_rpm;				//Стационарность по оборотам 
 		int stationary_rpm_count = 0;
-		int stationary_pf;				//РЎС‚Р°С†РёРѕРЅР°СЂРЅРѕСЃС‚СЊ РїРѕ РґСЂРѕСЃСЃРµР»СЋ/РґР°РІР»РµРЅРёСЋ
+		int stationary_pf;				//Стационарность по дросселю/давлению
 		int stationary_pf_count = 0;
 		int stationary_lam_count = 0;
 
@@ -204,15 +208,15 @@ int main(int argc, char* argv[])
 		for (int t = 1; t < data_count; t++)
 		{
 			coef_deviation = calc_deviation(&coef_mean, dCOEFF[t], 4);
-			if (dLAMREG[t] < 1 && !flag_use_lsu)	continue;//РЅРµ РІ Р·РѕРЅРµ СЂРµРіСѓР»РёСЂРѕРІР°РЅРёСЏ РЈР”Рљ Рё РЅРµС‚ РЁР”Рљ
-			if (dTWAT[t] < 70 )	continue;//РґРІРёРіР°С‚РµР»СЊ РЅРµ РїСЂРѕРіСЂРµС‚
-			if (dRPM[t] < 0.9*RPM_Quantization[0])	continue;//РѕР±РѕСЂРѕС‚С‹ РЅРёР¶Рµ СЂР°Р±РѕС‡РёС…
+			if (dLAMREG[t] < 1 && !flag_use_lsu)	continue;//не в зоне регулирования УДК и нет ШДК
+			if (dTWAT[t] < 70 )	continue;//двигатель не прогрет
+			if (dRPM[t] < 0.9*RPM_Quantization[0])	continue;//обороты ниже рабочих
 			
 			float press = pressureByADC(dADC_MAF[t]);
 			if (flag_pf_throttle != true)
 			{
-				//press = dPRESS[t];
-				if (press * 10.0 < 0.9*Factor_Quantization[0])//Р”Р°РІР»РµРЅРёРµ СЃР»РёР¶РєРѕРј РЅРёР·РєРѕРµ
+				press = dPRESS[t];
+				if (press * 10.0 < 0.9*Factor_Quantization[0])//Давление слижком низкое
 					continue;
 			}
 
@@ -236,14 +240,14 @@ int main(int argc, char* argv[])
 			if (stationary_pf  & (dINJ[t] > 0) )	stationary_pf_count++;
 			else				stationary_pf_count = 0;
 
-			if (stationary_rpm && stationary_pf && (coef_deviation < 0.05))//РІРёРґРёРјРѕ СЃС‚Р°С†РёРѕРЅР°СЂРЅРѕСЃС‚СЊ РїРѕ Р»СЏРјР±РґРµ
+			if (stationary_rpm && stationary_pf && (coef_deviation < 0.05))//видимо стационарность по лямбде
 					stationary_lam_count++;
 			else	stationary_lam_count = 0;
 
 			if (stationary_rpm_count > 2 && stationary_pf_count > 2 && stationary_lam_count > 2)
 			{
 				float flam_delta = dfLAM[t] - dfLAM[t - 1];
-				if ( (flam_delta >= 0 && dCOEFF[t] > 1) || (flam_delta <= 0 && dCOEFF[t] < 1) )
+				if ( (flam_delta >= 0 && dCOEFF[t] >= 1) || (flam_delta <= 0 && dCOEFF[t] <= 1) )
 				{
 					float coef = dCOEFF[t] * dLC_AFR[t] / dAFR[t];
 					table_core[factor_rt][rpm_rt].push_back(pointoflearn
@@ -392,12 +396,12 @@ int main(int argc, char* argv[])
 				table_bcn[i][j] = mean / float(cnt);
 		}
 	}
-	write_cte_data("bcn_new.cte", table_bcn, cte_bcn_head, cte_bcn_caption);
+	write_cte_data("bcn_press.cte", table_bcn, cte_bcn_head, cte_bcn_caption);
 
 
 	/*
-	С‚СѓС‚ Р·Р°РґСѓРјС‹РІР°Р»РѕСЃСЊ, РµСЃР»Рё С„Р°Р№Р» РЅРµ РѕС‚РєСЂС‹Р»СЃСЏ РґР»СЏ С‡С‚РµРЅРёСЏ СЃС‚Р°СЂС‹С… РґР°РЅРЅС‹С…, С‚Рѕ РЅРѕРІС‹Р№ РЅРµ СЃРѕР·РґР°РµС‚СЃСЏ
-	РґРѕР±Р°РІР»РµРЅРёРµ РґР°РЅРЅС‹С… РёРґРµС‚ С‚РѕР»СЊРєРѕ РІ СЃС‚Р°СЂС‹Р№ С„Р°Р№Р», РІРѕР·РјРѕР¶РЅРѕ РґР°Р¶Рµ РІ РїСѓСЃС‚РѕР№
+	тут задумывалось, если файл не открылся для чтения старых данных, то новый не создается
+	добавление данных идет только в старый файл, возможно даже в пустой
 	const char * map_fail_name = "imitator_press_whenMAP_failure.cte";
 	read_cte_data(map_fail_name, table_MAP_failure, cte_head, cte_caption);
 	for (int i = 0; i < table_size; i++)
@@ -408,7 +412,7 @@ int main(int argc, char* argv[])
 				table_MAP_failure[i][j] = 10.0*table_MAP_failure[i][j] / float(table_MAP_failure_cnt[i][j]);
 		}
 	}
-	write_cte_data(map_fail_name, table_MAP_failure, "[13128542]", "РРјРёС‚Р°С‚РѕСЂ РґР°РІР»РµРЅРёСЏ РїСЂРё РѕС‚РєР°Р·Рµ Р”РђР”");
+	write_cte_data(map_fail_name, table_MAP_failure, "[13128542]", "Имитатор давления при отказе ДАД");
 
 	*/
 	return 0;
