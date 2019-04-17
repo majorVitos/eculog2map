@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cctype>
+
 #include <cstdarg> 
 
 #include <cassert>
@@ -199,13 +200,13 @@ int read_logs_csv2(const std::string &file_name, data_logs_t &data_logs)
 {
 	char buffer[256];
 	char* tmp;
-	int err = 0;
 	std::vector<type1> data;
+	bool _do;
 
 	std::unique_ptr<std::FILE, int(*)(std::FILE*)> fi(fopen(file_name.c_str(), "rb"), std::fclose);
 	if (!fi)
 		return 1;
-	
+
 	//filling names
 	do
 	{
@@ -213,14 +214,14 @@ int read_logs_csv2(const std::string &file_name, data_logs_t &data_logs)
 		if (fscanf(fi.get(), "%255[^,\r\n],", tmp) == EOF)
 			return EOF;
 		for (; isalnum(*(unsigned char*)tmp) == 0 && *tmp != 0; tmp++);//skip firsts whitespaceses / пропуск начальных пробелов
-		err = !data_logs.emplace(std::string(tmp), std::vector<std::string>()).second;
-		if (!err)
+		if ((_do = data_logs.emplace(std::string(tmp), std::vector<std::string>()).second))
 			data.push_back(type1(tmp, std::vector<std::string>()));
-	} while (!err);
-	
-	err = 0;
+	} while (_do);
+	if (data.size() == 0)//No data in file
+		return 2;
+	_do = true;
 	//filling data
-	while((fscanf(fi.get(), "\r\n")) == 0 && !err)
+	while((fscanf(fi.get(), "\r\n")) == 0 && _do)
 	{
 		for (auto i = data.begin(); i != data.end(); ++i)
 		{
@@ -228,14 +229,14 @@ int read_logs_csv2(const std::string &file_name, data_logs_t &data_logs)
 			{
 				if (i == data.begin())
 				{
-					err = 1;
+					_do = false;
 					break;
 				}
 				else
 				{
 					for (; i != data.begin();)//Partially read data must be cleared / частично загружены данные, нужно откатить назад 
 						(*(--i)).second.pop_back();
-					err = 1;
+					_do = false;
 					break;
 				}
 			}
@@ -247,6 +248,59 @@ int read_logs_csv2(const std::string &file_name, data_logs_t &data_logs)
 		auto v = data_logs.find((*i).first);
 		assert(v != data_logs.end());
 		(*v).second.swap((*i).second);
+	}
+	return 0;
+}
+
+int get_logs_data2(const data_logs_t& data_logs, std::vector<int> &ret, const char* first, ...)
+{
+	auto it = data_logs.end();
+	va_list v;
+	bool done = false;
+	const char* str = first;
+
+	va_start(v, first);
+	while (str && str[0])//
+	{
+		if ((it = data_logs.find(str)) != data_logs.end())
+		{
+			done = true;
+			break;
+		}
+		str = va_arg(v, const char*);
+	}
+	va_end(v);
+	if (!done)	return 1;
+	ret.reserve((*it).second.size());
+	for (auto i = (*it).second.cbegin(); i != (*it).second.cend(); ++i)
+	{
+		ret.push_back(std::stoi(*i));
+	}
+	return 0;
+}
+int get_logs_data2(const data_logs_t& data_logs, std::vector<float> &ret, const char* first, ...)
+{
+	auto it = data_logs.end();
+	va_list v;
+	bool done = false;
+	const char* str = first;
+
+	va_start(v, first);
+	while (str && str[0])//
+	{
+		if ((it = data_logs.find(str)) != data_logs.end())
+		{
+			done = true;
+			break;
+		}
+		str = va_arg(v, const char*);
+	}
+	va_end(v);
+	if (!done)	return 1;
+	ret.reserve((*it).second.size());
+	for (auto i = (*it).second.cbegin(); i != (*it).second.cend(); ++i)
+	{
+		ret.push_back(std::stof(*i));
 	}
 	return 0;
 }

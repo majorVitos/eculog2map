@@ -49,7 +49,7 @@ int get_current_rt(const std::vector<int> data, const int value, float *distance
 		else
 			b = k;
 	}
-	dist1 = data[k] - value;
+	dist1 = float(data[k] - value);
 	if (k + 1 < data.size())
 		norm = 1.0f / float(data[k] - data[k + 1]);
 	else
@@ -134,60 +134,79 @@ bool flag_use_lsu = true;
 
 int main(int argc, char* argv[])
 {
-	float **logs_data_ptr;
-	char **logs_params_ptr;
-	int params_count, data_count;
-	int err;
-
 	std::vector<pointoflearn> table_core[table_size][table_size];	
 	std::vector<int> RPM_Quantization;
 	std::vector<int> Factor_Quantization;
 	std::vector<int> Throttle_Quantization;
-	
+	int err;
+
 	if (argc > 1)
 	{
 		printf("Unsuported parameter: %s", argv[1]);
 	}
 
-	tsconfig cfg1("test.cfg");
-	cfg1.get_int("RPM_es" + std::to_string(table_size), RPM_Quantization);
-	cfg1.get_int("Press_quant" + std::to_string(table_size), Factor_Quantization);
-	cfg1.get_int("Throttle_quant", Throttle_Quantization);
-
+	try
+	{
+		tsconfig cfg1("test.cfg");
+		cfg1.get_int("RPM_es" + std::to_string(table_size), RPM_Quantization);
+		cfg1.get_int("Press_quant" + std::to_string(table_size), Factor_Quantization);
+		cfg1.get_int("Throttle_quant", Throttle_Quantization);
+	}
+	catch (...)
+	{
+		perror("");
+		return 10;
+	}
 
 	std::setlocale(LC_ALL, "en");
-	
-
 	std::vector<std::string> file_names = get_all_logs_filenames();
-	data_logs_t data_logs;
+	
 
 	for (size_t fi = 0; fi < file_names.size(); fi++)
 	{
+		data_logs_t data_logs;
 		err = read_logs_csv2(std::string("logs\\") + file_names[fi], data_logs);
-		auto v = data_logs.find("TIME");
-		auto v2 = data_logs.find("Time");
-		err = read_logs_csv((std::string("logs\\") + file_names[fi]).c_str(), &logs_data_ptr, &logs_params_ptr, &params_count, &data_count);
-
-		const float *dTIME		= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "TIME", "Time");
-		const float *dTRT		= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 3, "TRT", "THR", "Дроссель");
-		const float *dRPM		= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "RPM", "обороты двс");
-		const float *dfLAM		= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "fLAM", "текущее состояние ДК");
-		const float *dCOEFF		= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "COEFF", "коэфицент коррекции времени впрыска");
-		const float *dPRESS		= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "PRESS", "PRESSURE J7ES");
-		const float *dLAMREG	= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "fLAMREG", "флаг зоны регулирования по дк");
-		const float *dTWAT		= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "TWAT", "температура ОЖ");
-		const float *dGBC		= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "GBC", "Цикловой расход воздуха");
-//		const float *dADC_LAM	= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "ADCLAM", "АЦП ДК");
-	
-		const float *dADC_MAF	= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "ADCMAF", "АЦП ДМРВ");
-		const float *dINJ		= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "INJ", "Время впрыска");
-		const float *dAFR		= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "AFR", "состав смеси");//Desired afr
-		const float *dLC_AFR	= get_logsdata_param_ptr(logs_data_ptr, logs_params_ptr, params_count, 2, "AFR_LC1", "AFR_LC");
-
-		if (!dTIME || !dTRT || !dRPM || !dfLAM || !dCOEFF || !dPRESS || !dLAMREG || !dTWAT || !dGBC)
+		if (err != 0)
 		{
-			printf("log file corrupted!\n");
-			return 1;
+			perror("");
+			return 4;
+		}
+		//auto v = get_logs_data<float>(data_logs, "TIME", "Time", 0);
+		//std::vector<float> dfLAM = get_logs_data<float>(data_logs, "fLAM", "текущее состояние ДК");
+
+		std::vector<float>	dTIME;
+		std::vector<float>	dCOEFF;
+		std::vector<int>	dTRT;
+		std::vector<int>	dRPM;
+		std::vector<int>	dfLAM;
+		std::vector<float>	dPRESS;
+		std::vector<int>	dLAMREG;
+		std::vector<float>	dTWAT;
+		std::vector<float>	dGBC;
+		std::vector<float>	dADC_LAM;
+		std::vector<float>	dADC_MAF;
+		std::vector<float>	dINJ;
+		std::vector<float>	dAFR;
+		std::vector<float>	dLC_AFR;
+
+		err += get_logs_data2(data_logs, dTIME, "TIME", "Time", 0);
+		err += get_logs_data2(data_logs, dCOEFF, "COEFF", "коэфицент коррекции времени впрыска", 0);
+		err += get_logs_data2(data_logs, dTRT, "TRT", "THR", "Дроссель", 0);
+		err += get_logs_data2(data_logs, dRPM, "RPM", "обороты двс", 0);
+		err += get_logs_data2(data_logs, dfLAM, "fLAM", "текущее состояние ДК", 0);
+		err += get_logs_data2(data_logs, dPRESS, "PRESS", "PRESSURE J7ES", 0);
+		err += get_logs_data2(data_logs, dLAMREG, "fLAMREG", "флаг зоны регулирования по дк", 0);
+		err += get_logs_data2(data_logs, dTWAT, "TWAT", "температура ОЖ", 0);
+		err += get_logs_data2(data_logs, dGBC, "GBC", "Цикловой расход воздуха", 0);
+		err += get_logs_data2(data_logs, dADC_LAM, "ADCLAM", "АЦП ДК", 0);
+		err += get_logs_data2(data_logs, dADC_MAF, "ADCMAF", "АЦП ДМРВ", 0);
+		err += get_logs_data2(data_logs, dINJ, "INJ", "Время впрыска", 0);
+		err += get_logs_data2(data_logs, dAFR, "AFR", "состав смеси", 0);
+		err += get_logs_data2(data_logs, dLC_AFR, "AFR_LC1", "AFR_LC", 0);
+		if (err != 0)
+		{
+			perror("");
+			return 5;
 		}
 
 		int factor_rt, prev_factor_rt = 0;
@@ -202,7 +221,7 @@ int main(int argc, char* argv[])
 
 		float coef_mean, coef_deviation;
 
-		for (int t = 1; t < data_count; t++)
+		for (size_t t = 1; t < dTIME.size(); t++)
 		{
 			coef_deviation = calc_deviation(&coef_mean, dCOEFF[t], 4);
 			if (dLAMREG[t] < 1 && !flag_use_lsu)	continue;//не в зоне регулирования УДК и нет ШДК
@@ -244,7 +263,7 @@ int main(int argc, char* argv[])
 
 			if (stationary_rpm_count > 2 && stationary_pf_count > 2 && stationary_lam_count > 2)
 			{
-				float flam_delta = dfLAM[t] - dfLAM[t - 1];
+				int flam_delta = dfLAM[t] - dfLAM[t - 1];//is this integer
 				if ( (flam_delta >= 0 && dCOEFF[t] >= 1) || (flam_delta <= 0 && dCOEFF[t] <= 1) )
 				{
 					float coef = dCOEFF[t] * dLC_AFR[t] / dAFR[t];
@@ -258,8 +277,6 @@ int main(int argc, char* argv[])
 			prev_rpm_rt = rpm_rt;
 			prev_factor_rt = factor_rt;
 		}
-		free_log_params(logs_params_ptr, params_count);
-		free_log_data(logs_data_ptr, params_count);
 	}
 
 	std::setlocale(LC_ALL, "ru");

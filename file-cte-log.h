@@ -46,7 +46,39 @@ void free_log_data(float **logs_data, const int params_count);
 
 
 
+#include <cstdarg> 
 
 typedef std::map<std::string, std::vector<std::string>> data_logs_t;
 
-int read_logs_csv2(const std::string &file_name, data_logs_t &logs_data);
+int read_logs_csv2(const std::string &file_name, data_logs_t &data_logs);
+
+template <typename T>
+std::vector<T> get_logs_data(const data_logs_t &data_logs, const char *first, ...)
+{
+	std::vector<T> ret;
+	auto it = data_logs.end();
+	va_list v;
+	bool done = false;
+	const char* str = first;
+
+	va_start(v, first);
+	while(str && str[0])//
+	{
+		if( (it = data_logs.find(str)) != data_logs.end())
+		{
+			done = true;
+			break;
+		}
+		str = va_arg(v, const char*);
+	}
+	va_end(v);
+	ret.reserve((*it).second.size());
+	for (auto i = (*it).second.cbegin(); i != (*it).second.cend(); ++i)
+	{
+		ret.push_back(std::stof(*i));
+	}
+	return ret;
+}
+
+int get_logs_data2(const data_logs_t& data_logs, std::vector<int> &ret, const char* first, ...);
+int get_logs_data2(const data_logs_t& data_logs, std::vector<float>& ret, const char* first, ...);
