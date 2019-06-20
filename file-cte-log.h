@@ -5,80 +5,66 @@
 #include <string>
 #include <utility>
 
-enum TABLE_TYPE { TBT_16x16, TBT_32x16, TBT_32x32 };
-
-void inline PARAM_SIZE_BY_TABLE(TABLE_TYPE TT, int &x, int &y)
-{
-	switch (TT)
-	{
-	case TBT_16x16:
-		x = y = 16;
-		break;
-	case TBT_32x16:
-		x = 32;
-		y = 16;
-		break;
-	case TBT_32x32:
-		x = y = 32;
-		break;
-	default:
-		throw "TABLE_TYPE wrong";
-		break;
-	}
-}
 
 /*
 	cte-file.cpp
 */
-int read_cte_data(const char *file_name, float DATA[16][16], char *input_src_head, char *input_src_caption);
-int read_cte_data32(const char *file_name, float DATA[32][32], char *input_src_head, char *input_src_caption);
-int write_cte_data(const char *file_name, const float DATA[16][16], const char *input_src_head, const char *input_src_caption);
-int write_cte_data32(const char *file_name, const float DATA[32][32], const char *input_src_head, const char *input_src_caption);
+/*
+Must std::setlocale(LC_ALL, "ru"); to set ',' as a decimal separator
+*/
+/*
+Reading of .cte chiptuner file format / Чтение файлов формата .cte chiptuner
+Supported only one sets of calibrations per file / Поддерживается только один набор калибровок на файл, не вижу смысла в мультикалибровках
+return: 0 - all good, 1 - file opening problem, 2 - cte file corrupted, 3 - wrong "type"
+file_name
+type
+data
+head
+caption
+
+Внешний индекс указывает на X - координату (обычно это обороты), внутренний индекс (ползунок: цикловое наполнение, дроссель, давление и т.д.)
+есть ошибка диапазона при использовании таблиц32 с указанием что читаем 16 происходит выход за границы массива
+*/
+int read_cte(const char* file_name, const uint16_t js, const uint16_t is, float** data, char* head, char* caption);
+
+template <uint16_t n, uint16_t m>
+int read_cte_file(const char* file_name, float data[n][m], char* input_src_head, char* input_src_caption)
+{
+	float** data_ptr = new float* [n];
+	for (int i = 0; i < n; i++)
+		data_ptr[i] = data[i];
+	int res = read_cte(file_name, n, m, data_ptr, input_src_head, input_src_caption);
+	delete[] data_ptr;
+	return res;
+}
+
+
+int write_cte(const char* file_name, const uint16_t js, const uint16_t is, const float* const* data, const char* head, const char* caption);
+template <uint16_t n, uint16_t m>
+int write_cte_file(const char* file_name, const float data[16][16], const char* input_src_head, const char* input_src_caption)
+{
+	const float** data_ptr = new const float* [n];
+	for (int i = 0; i < n; i++)
+		data_ptr[i] = data[i];
+	int res = write_cte(file_name, n, m, data_ptr, input_src_head, input_src_caption);
+	delete[] data_ptr;
+	return res;
+}
+
 
 
 /*
-	log_file.cpp
+	file-log.cpp
 */
-int read_logs_csv(const char *file_name, float ***_logs_data_ptr, char ***_logs_params_ptr, int *_params_count, int *_data_count);
-const float* get_logsdata_param_ptr(const float * const * logs_data, const char * const *param, const int params_count, const int num_aliases, ...);
-void free_log_params(char **logs_params_ptr, const int params_count);
-void free_log_data(float **logs_data, const int params_count);
-
-
-
-#include <cstdarg> 
+std::vector<std::string> get_all_logs_filenames(const std::string& path);
 
 typedef std::map<std::string, std::vector<std::string>> data_logs_t;
 
-int read_logs_csv2(const std::string &file_name, data_logs_t &data_logs);
+int read_logs_csv(const std::string &file_name, data_logs_t &data_logs);
 
+
+//calling looks like: auto dTRT = get_logs_data<int>(data_logs, {"TRT", "THR", "Дроссель"});
+//instantiated for <int> and <float>
 template <typename T>
-std::vector<T> get_logs_data(const data_logs_t &data_logs, const char *first, ...)
-{
-	std::vector<T> ret;
-	auto it = data_logs.end();
-	va_list v;
-	bool done = false;
-	const char* str = first;
+std::vector<T> get_logs_data(const data_logs_t& data_logs, const std::vector<std::string>& names);
 
-	va_start(v, first);
-	while(str && str[0])//
-	{
-		if( (it = data_logs.find(str)) != data_logs.end())
-		{
-			done = true;
-			break;
-		}
-		str = va_arg(v, const char*);
-	}
-	va_end(v);
-	ret.reserve((*it).second.size());
-	for (auto i = (*it).second.cbegin(); i != (*it).second.cend(); ++i)
-	{
-		ret.push_back(std::stof(*i));
-	}
-	return ret;
-}
-
-int get_logs_data2(const data_logs_t& data_logs, std::vector<int> &ret, const char* first, ...);
-int get_logs_data2(const data_logs_t& data_logs, std::vector<float>& ret, const char* first, ...);

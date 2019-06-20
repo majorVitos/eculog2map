@@ -77,13 +77,15 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="../config.h" />
-    <ClInclude Include="..\file-cte-log.h" />
+    <ClInclude Include="../file-cte-log.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="../file-cte.cpp" />
     <ClCompile Include="../config.cpp" />
     <ClCompile Include="../file-log.cpp" />
     <ClCompile Include="../main.cpp" />
+    <ClCompile Include="../rpm-change.cpp" />
+    <ClCompile Include="../eculog2map.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

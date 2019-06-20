@@ -21,8 +21,15 @@ class tsconfig
 	std::vector<tparam_f>	paramsf;
 	std::vector<tparam_i>	paramsi;
 public:
+	tsconfig()
+	{}
 	tsconfig(const std::string file);
-	int get_int(const std::string name, std::vector<int> &param);
+	int open(const std::string file);
+
+	std::vector<int> geti(const std::string name) throw();
+	std::vector<float> getf(const std::string name) throw();
+	std::vector < std::string > gets(const std::string name) throw();
+	//int
 	int error;
 	std::string error_str;
 };
